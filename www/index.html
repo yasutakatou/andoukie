@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//w3c//dtd xhtml 1.0 strict//en" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<meta charset="utf-8">
+<head>
+<title>
+	doukie for android
+</title>
+<style type="text/css">
+.switch {
+	position: relative;
+	display: inline-block;
+	width: 60px;
+	height: 34px;
+}
+
+.switch input {display:none;}
+
+.slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: #ccc;
+	-webkit-transition: .4s;
+	transition: .4s;
+}
+
+.slider:before {
+	position: absolute;
+	content: "";
+	height: 26px;
+	width: 26px;
+	left: 4px;
+	bottom: 4px;
+	background-color: white;
+	-webkit-transition: .4s;
+	transition: .4s;
+}
+
+input:checked + .slider {
+	background-color: #2196F3;
+}
+
+input:focus + .slider {
+	box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+	-webkit-transform: translateX(26px);
+	-ms-transform: translateX(26px);
+	transform: translateX(26px);
+}
+
+/* Popup container */
+.popup {
+	position: relative;
+	display: inline-block;
+	cursor: pointer;
+}
+
+/* The actual popup (appears on top) */
+.popup .popuptext {
+	visibility: hidden;
+	width: 160px;
+	background-color: #555;
+	color: #fff;
+	text-align: center;
+	border-radius: 6px;
+	padding: 8px 0;
+	position: absolute;
+	z-index: 1;
+	bottom: 125%;
+	left: 50%;
+	margin-left: -80px;
+}
+
+/* Toggle this class when clicking on the popup container (hide and show the popup) */
+.popup .show {
+	visibility: visible;
+	-webkit-animation: fadeIn 1s;
+	animation: fadeIn 1s
+}
+
+/* Add animation (fade in the popup) */
+@-webkit-keyframes fadeIn {
+	from {opacity: 0;}
+	to {opacity: 1;}
+}
+
+@keyframes fadeIn {
+	from {opacity: 0;}
+	to {opacity:1 ;}
+}
+</style>
+</head>
+<font color="#ffffff">not delete mode</font><br>
+<label class="switch">
+	<input type="checkbox">
+	<div class="slider"></div>
+</label>
+<body style="background-color: #444444">
+<div id="some_element"></div>
+<hr>
+<div class="popup">
+	<span class="popuptext" id="popup"></span>
+</div>
+<p id="stats"></p>
+</body>
+<script type="text/javascript" src="cordova.js"></script>
+<script type="text/javascript" src="pureknob.js"></script>
+<script type="text/javascript">
+
+let messages = new Array(); 
+let fileList = new Array(); 
+let syncTime = 0;
+let deleteMode = false;
+let srcUrl = '';
+let counter;
+let syncFlag = false;
+let downFlag = false;
+
+document.addEventListener('DOMContentLoaded', function () {
+var checkbox = document.querySelector('input[type="checkbox"]');
+
+checkbox.addEventListener('change', function () {
+		if (checkbox.checked) {
+			// do this
+			addMessage("not delete mode: ON")
+			deleteMode = true;
+		} else {
+			// do that
+			addMessage("not delete mode: OFF")
+			deleteMode = false;
+		}
+	});
+});
+
+// <![CDATA[
+/*
+ * Demo code for knob element.
+ */
+function demoKnob() {
+	// Create knob element, 300 x 300 px in size.
+	const knob = pureknob.createKnob(300, 300);
+
+	// Set properties.
+	knob.setProperty('angleStart', -0.75 * Math.PI);
+	knob.setProperty('angleEnd', 0.75 * Math.PI);
+	knob.setProperty('colorFG', '#88ff88');
+	knob.setProperty('trackWidth', 0.4);
+	knob.setProperty('valMin', 0);
+	knob.setProperty('valMax', 180);
+
+	// Set initial value.
+	knob.setValue(syncTime);
+
+	/*
+	 * Event listener.
+	 *
+	 * Parameter 'knob' is the knob object which was
+	 * actuated. Allows you to associate data with
+	 * it to discern which of your knobs was actuated.
+	 *
+	 * Parameter 'value' is the value which was set
+	 * by the user.
+	 */
+	const listener = function(knob, value) {
+		addMessage(" change sync time (" + syncTime + ") -> (" + value + ")")
+		syncTime = value;
+	};
+
+	knob.addListener(listener);
+
+	// Create element node.
+	const node = knob.node();
+
+	// Add it to the DOM.
+	const elem = document.getElementById('some_element');
+	elem.appendChild(node);
+}
+
+/*
+ * This is executed after the document finished loading.
+ */
+function ready() {
+	demoKnob();
+	demoBarGraph();
+}
+
+function addMessage(strs) {
+	messages.push(strs)
+	if (messages.length > 10) {
+		messages.shift();
+	}
+}
+
+function syncSrc() {
+	clearInterval(counter);
+	if (syncTime > 0) {
+		addMessage(" -- sync!! interval (" + syncTime + ") -> "+ srcUrl +" -- ");
+	} else {
+		addMessage(" -- not sync.. -- ");
+	}
+
+	let element = document.getElementById('stats');
+
+	element.innerHTML = ""
+	for (let i = 0 ; i < messages.length; i++) {
+		element.innerHTML += "<font color=#ffffff>" + messages[i] + "</font><br>";
+	}
+	
+	if (syncTime == 0) {
+		counter = setInterval(syncSrc, 10 * 1000);
+	} else {
+		counter = setInterval(syncSrc, syncTime * 1000);
+
+		if (syncFlag == false) {
+			getList();
+		} else {
+			if (downFlag == false) {
+				downFlag = true;
+				doDownload().then(function() {
+					if (deleteMode == false) {
+						deleteFiles(cordova.file.externalDataDirectory);
+					}
+					syncFlag = false;
+					downFlag = false;
+				});
+			}
+		}
+	}
+}
+
+function deleteFiles(path) {
+	window.resolveLocalFileSystemURL(path,
+		function (fileSystem) {
+		var reader = fileSystem.createReader();
+		reader.readEntries(
+			function (entries) {
+				for (var i = 0 ; i < entries.length; i++) {
+					if (fileList.indexOf(entries[i]) == -1) {
+						removeFile(path + entries[i])
+						//alert("delete: " + path + entries[i]);
+					}
+				}
+			},
+			function (err) {
+				addMessage(err);
+			}
+		);
+		}, function (err) {
+			addMessage(err);
+		}
+	);
+}
+
+function removeFile(path) {
+	return new Promise((resolve, reject) => {
+	const filePath = path.substr(0, path.lastIndexOf('/'));
+
+	window.resolveLocalFileSystemURL(filePath, (dir) => {
+		const fileName = path.substr(path.lastIndexOf('/') + 1);
+		dir.getFile(fileName, { create: false }, (fileEntry) => {
+		fileEntry.remove(() => {
+			resolve('file removed!');
+		}, (error) => reject('error occurred: ' + error.code),
+			() => reject('file does not exist'));
+		}, (error) => reject(error));
+		}, (error) => reject(error));
+	});
+}
+
+function doDownload() {
+	return new Promise(function(resolve) {
+		for (var i = 0 ; i < fileList.length; i++) {
+			if (fileList[i].length > 1) {
+				var strb = fileList[i].split(/:/);
+				doPopup(strb[0]);
+				DownloadFile(srcUrl+"/download/" + strb[0],strb[0],strb[1]);
+				doPopup("");
+			}
+		}
+		resolve();
+	});
+}
+
+function doPopup(text) {
+	var popup = document.getElementById("popup");
+	popup.innerHTML = text;
+	popup.classList.toggle("show");
+}
+
+function getList() {
+	fileList = new Array(); 
+	cordovaFetch(srcUrl + "/list", {
+		method : 'GET',
+	})
+	.then(response => {
+		return response.json();
+	}).then(result => {
+		if (result.status == "Success") {
+			existAndHashCheck(result.message).then(function() {
+				if (fileList.length > 0) {
+					syncFlag = true;
+				}
+			});
+		}
+	})
+}
+
+function existAndHashCheck(strs) {
+	return new Promise(function(resolve) {
+		var stra = strs.split(/,/);
+
+		for (var i = 0; i < stra.length; i++) {
+			if (stra[i].indexOf(':') > -1) {
+				var strb = stra[i].split(/:/);
+				if (strb[0].charAt(0) == " ") {
+					strb[0] = strb[0].substr(1);
+				}
+				checkLogic(strb[0],strb[1],strb[2]);
+			}
+		}
+		resolve();
+	});
+}
+
+function checkLogic(filename,hashStr,contentType) {
+	var params = {data: cordova.file.externalDataDirectory.replace(/file:\/\//g, "")+filename, hash: "md5"};
+	window.hashFile(params, function(hash) {
+		if (hashStr != hash.toLowerCase()) {
+			addMessage("hash differ! " + filename);
+			fileList.push(filename+":"+contentType);
+		} else {
+			addMessage("same or exists: " + filename);
+		}
+	});
+}
+
+function DownloadFile(url,filename,contentType) {
+	cordovaFetch(url, {
+			method : 'GET',
+		})
+		.then(response => {
+			return response.text();
+		}).then(function(text) {
+			savebase64AsPDF(cordova.file.externalDataDirectory,filename,text,contentType);
+	});
+}
+
+document.addEventListener('DOMContentLoaded', ready, false);
+document.addEventListener("deviceready", onDeviceReady, false);
+
+/**
+ * Convert a base64 string in a Blob according to the data and contentType.
+ * 
+ * @param b64Data {String} Pure base64 string without contentType
+ * @param contentType {String} the content type of the file i.e (application/pdf - text/plain)
+ * @param sliceSize {Int} SliceSize to process the byteCharacters
+ * @see http://stackoverflow.com/questions/16245767/creating-a-blob-from-a-base64-string-in-javascript
+ * @return Blob
+ */
+function b64toBlob(b64Data, contentType, sliceSize) {
+		contentType = contentType || '';
+		sliceSize = sliceSize || 512;
+		var byteCharacters = atob(b64Data);
+
+		var byteArrays = [];
+			for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+			var slice = byteCharacters.slice(offset, offset + sliceSize);
+				var byteNumbers = new Array(slice.length);
+			for (var i = 0; i < slice.length; i++) {
+				byteNumbers[i] = slice.charCodeAt(i);
+			}
+			var byteArray = new Uint8Array(byteNumbers);
+			byteArrays.push(byteArray);
+		}
+	var blob = new Blob(byteArrays, {type: contentType});
+	return blob;
+}
+
+/**
+ * Create a PDF file according to its database64 content only.
+ * 
+ * @param folderpath {String} The folder where the file will be created
+ * @param filename {String} The name of the file that will be created
+ * @param content {Base64 String} Important : The content can't contain the following string (data:application/pdf;base64). Only the base64 string is expected.
+ */
+function savebase64AsPDF(folderpath,filename,content,contentType){
+	// Convert the base64 string in a Blob
+	var DataBlob = b64toBlob(content,contentType);
+		
+	window.resolveLocalFileSystemURL(folderpath, function(dir) {
+		dir.getFile(filename, {create:true}, function(file) {
+			file.createWriter(function(fileWriter) {
+				fileWriter.write(DataBlob);
+			}, function(){
+				addMessage('Unable to save file in path '+ folderpath);
+			});
+		});
+	});
+}
+
+function onDeviceReady() {
+	cordova.plugins.barcodeScanner.scan(function(result){
+			srcUrl = result.text
+			
+			counter = setInterval(syncSrc, 5 * 1000);
+		},function(error){
+			alert(JSON.stringify(error));
+			navigator.app.exitApp();
+		}
+	);
+}
+
+</script>
+</head>
+</html>
