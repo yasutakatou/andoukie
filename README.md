@@ -123,3 +123,8 @@ https://stackoverflow.com/questions/28937878/cordova-list-all-files-from-applica
 
  - popup<br>
 https://www.w3schools.com/howto/howto_js_popup.asp
+
+# LICENSE
+
+Apache License, Version 2.0
+
