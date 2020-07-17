@@ -97,7 +97,7 @@ Internal Storage<br>
 - why static save location?<br>
 
 As I wrote earlier. cordova plugin not work.<br>
-example) https://github.com/ourcodeworld/cordova-ourcodeworld-filebrowser
+example) https://github.com/ourcodeworld/cordova-ourcodeworld-filebrowser<br>
 and I don't know how for implementetion.<br>
 If you teach to me this implement, I would coding.<br>
 
