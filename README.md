@@ -15,8 +15,8 @@ and, I realize file transfer on multi platform **(include Smart phone!)**.
 
 # features
 
- - read QR Code to syncing (no input operation)
- - gauge and switch easily operation
+ - **read QR Code to syncing (no input operation)**
+ - **gauge and switch easily operation**
  - file exists check (use md5 hash)
 
 # installation
@@ -64,13 +64,13 @@ operating on Android touch pannel.<br>
 
 default this switch is off.<br>
 If some file exists Android, but not exists server, that file delete on .<br>
-when turn on this switch to not delete.<br>
+**when turn on this switch to not delete**.<br>
 
 ② gauge of sync interval
 
 this gauge is interval of file syncing.<br>
-example (60), is sync every 60 seconds.<br>
-(0) is not syncing.<br>
+**example (60), is sync every 60 seconds.**<br>
+**(0) is not syncing.**<br>
 
 ③ status column
 
@@ -83,23 +83,23 @@ This place display sync status or another message.<br>
 this application builed by Apache Cordova.<br>
 Cordova plugins are very instability.<br>
 I can't work to want any features.<br>
-(I feel about 50% not work. because depend old Android API.)<br>
+**(I feel about 50% not work. because depend old Android API.)**<br>
 By the next try to build Android application, I consider another framework, react native, Flutter..<br>
 
 - where save synced files?<br>
 
-Internal Storage<br>
+**Internal Storage<br>
 	- Android<br>
 		- data<br>
 			- io.cordova.hellocordova<br>
-				- files<br>
+				- files**<br>
 
 - why static save location?<br>
 
 As I wrote earlier. cordova plugin not work.<br>
 example) https://github.com/ourcodeworld/cordova-ourcodeworld-filebrowser<br>
 and I don't know how for implementetion.<br>
-If you teach to me this implement, I would coding.<br>
+**If you teach to me this implement, I would coding.**<br>
 
 # FYI (many thanks!)
 
