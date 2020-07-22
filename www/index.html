@@ -61,46 +61,6 @@ input:checked + .slider:before {
 	transform: translateX(26px);
 }
 
-/* Popup container */
-.popup {
-	position: relative;
-	display: inline-block;
-	cursor: pointer;
-}
-
-/* The actual popup (appears on top) */
-.popup .popuptext {
-	visibility: hidden;
-	width: 160px;
-	background-color: #555;
-	color: #fff;
-	text-align: center;
-	border-radius: 6px;
-	padding: 8px 0;
-	position: absolute;
-	z-index: 1;
-	bottom: 125%;
-	left: 50%;
-	margin-left: -80px;
-}
-
-/* Toggle this class when clicking on the popup container (hide and show the popup) */
-.popup .show {
-	visibility: visible;
-	-webkit-animation: fadeIn 1s;
-	animation: fadeIn 1s
-}
-
-/* Add animation (fade in the popup) */
-@-webkit-keyframes fadeIn {
-	from {opacity: 0;}
-	to {opacity: 1;}
-}
-
-@keyframes fadeIn {
-	from {opacity: 0;}
-	to {opacity:1 ;}
-}
 </style>
 </head>
 <font color="#ffffff">not delete mode</font><br>
@@ -111,9 +71,6 @@ input:checked + .slider:before {
 <body style="background-color: #444444">
 <div id="some_element"></div>
 <hr>
-<div class="popup">
-	<span class="popuptext" id="popup"></span>
-</div>
 <p id="stats"></p>
 </body>
 <script type="text/javascript" src="cordova.js"></script>
@@ -122,7 +79,7 @@ input:checked + .slider:before {
 
 let messages = new Array(); 
 let fileList = new Array(); 
-let syncTime = 0;
+let syncTime = 10;
 let deleteMode = false;
 let srcUrl = '';
 let counter;
@@ -222,12 +179,14 @@ function syncSrc() {
 	if (syncTime == 0) {
 		counter = setInterval(syncSrc, 10 * 1000);
 	} else {
-		counter = setInterval(syncSrc, syncTime * 1000);
-
 		if (syncFlag == false) {
-			getList();
+			addMessage(" listing.. ");
+			getList().then(function() {
+				counter = setInterval(syncSrc, syncTime * 1000);
+			});
 		} else {
 			if (downFlag == false) {
+				addMessage(" downloading.. ");
 				downFlag = true;
 				doDownload().then(function() {
 					if (deleteMode == false) {
@@ -235,6 +194,7 @@ function syncSrc() {
 					}
 					syncFlag = false;
 					downFlag = false;
+					counter = setInterval(syncSrc, syncTime * 1000);
 				});
 			}
 		}
@@ -248,6 +208,7 @@ function deleteFiles(path) {
 		reader.readEntries(
 			function (entries) {
 				for (var i = 0 ; i < entries.length; i++) {
+					//alert(entries);
 					if (fileList.indexOf(entries[i]) == -1) {
 						removeFile(path + entries[i])
 						//alert("delete: " + path + entries[i]);
@@ -285,37 +246,32 @@ function doDownload() {
 		for (var i = 0 ; i < fileList.length; i++) {
 			if (fileList[i].length > 1) {
 				var strb = fileList[i].split(/:/);
-				doPopup(strb[0]);
 				DownloadFile(srcUrl+"/download/" + strb[0],strb[0],strb[1]);
-				doPopup("");
 			}
 		}
 		resolve();
 	});
 }
 
-function doPopup(text) {
-	var popup = document.getElementById("popup");
-	popup.innerHTML = text;
-	popup.classList.toggle("show");
-}
-
 function getList() {
-	fileList = new Array(); 
-	cordovaFetch(srcUrl + "/list", {
-		method : 'GET',
-	})
-	.then(response => {
-		return response.json();
-	}).then(result => {
-		if (result.status == "Success") {
-			existAndHashCheck(result.message).then(function() {
-				if (fileList.length > 0) {
-					syncFlag = true;
-				}
-			});
-		}
-	})
+	return new Promise(function(resolve) {
+		fileList = new Array(); 
+		cordovaFetch(srcUrl + "/list", {
+			method : 'GET',
+		})
+		.then(response => {
+			return response.json();
+		}).then(result => {
+			if (result.status == "Success") {
+				existAndHashCheck(result.message).then(function() {
+					if (fileList.length > 0) {
+						syncFlag = true;
+					}
+				});
+			}
+		})
+		resolve();
+	});
 }
 
 function existAndHashCheck(strs) {
@@ -336,25 +292,31 @@ function existAndHashCheck(strs) {
 }
 
 function checkLogic(filename,hashStr,contentType) {
-	var params = {data: cordova.file.externalDataDirectory.replace(/file:\/\//g, "")+filename, hash: "md5"};
-	window.hashFile(params, function(hash) {
-		if (hashStr != hash.toLowerCase()) {
-			addMessage("hash differ! " + filename);
-			fileList.push(filename+":"+contentType);
-		} else {
-			addMessage("same or exists: " + filename);
-		}
+	return new Promise(function(resolve) {
+		var params = {data: cordova.file.externalDataDirectory.replace(/file:\/\//g, "")+filename, hash: "md5"};
+		window.hashFile(params, function(hash) {
+			if (hashStr != hash.toLowerCase()) {
+				addMessage("hash differ! " + filename);
+				fileList.push(filename);
+			} else {
+				addMessage("same or exists: " + filename);
+			}
+		});
+		resolve();
 	});
 }
 
 function DownloadFile(url,filename,contentType) {
-	cordovaFetch(url, {
-			method : 'GET',
-		})
-		.then(response => {
-			return response.text();
-		}).then(function(text) {
-			savebase64AsPDF(cordova.file.externalDataDirectory,filename,text,contentType);
+	return new Promise(function(resolve) {
+		cordovaFetch(url, {
+				method : 'GET',
+			})
+			.then(response => {
+				return response.text();
+			}).then(function(text) {
+				savebase64AsPDF(cordova.file.externalDataDirectory,filename,text,contentType);
+		});
+		resolve();
 	});
 }
 
@@ -412,15 +374,17 @@ function savebase64AsPDF(folderpath,filename,content,contentType){
 }
 
 function onDeviceReady() {
-	cordova.plugins.barcodeScanner.scan(function(result){
-			srcUrl = result.text
+	// cordova.plugins.barcodeScanner.scan(function(result){
+	// 		srcUrl = result.text
 			
-			counter = setInterval(syncSrc, 5 * 1000);
-		},function(error){
-			alert(JSON.stringify(error));
-			navigator.app.exitApp();
-		}
-	);
+	// 		counter = setInterval(syncSrc, 5 * 1000);
+	// 	},function(error){
+	// 		alert(JSON.stringify(error));
+	// 		navigator.app.exitApp();
+	// 	}
+	// );
+	srcUrl = "http://192.168.0.10:8080/test"
+	counter = setInterval(syncSrc, 5 * 1000);
 }
 
 </script>
