@@ -2,6 +2,10 @@
 
 doukie client for Android. ([what is doukie? here](https://github.com/yasutakatou/doukie).)
 
+# demo
+
+![andoukie](https://github.com/yasutakatou/andoukie/blob/pic/andoukie.gif)
+
 # solution
 
 AirDrop is very useful file transfer method.<br>
