@@ -82,6 +82,19 @@ This place display sync status or another message.<br>
 
 # problem
 
+- fail to large file download!
+
+this tools  download little by little implement, <br>
+therefore The short sync cycle interrupt download session at larger file.<br>
+So,you operate **"gauge of sync" longer**.<br>
+
+- why get error on https mode?
+
+this problem depend used plugin.<br>
+https://github.com/aporat/cordova-plugin-fetch<br>
+**this plugin is not support https**.<br>
+but, i don't know another plugin on working.<br>
+
 - why Android can't use server and auto sync mode?<br>
 
 this application builed by Apache Cordova.<br>
