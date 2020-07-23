@@ -95,7 +95,7 @@ By the next try to build Android application, I consider another framework, reac
 **Internal Storage<br>
 	- Android<br>
 		- data<br>
-			- io.cordova.hellocordova<br>
+			- com.cordova.andoukie<br>
 				- files**<br>
 
 - why static save location?<br>
