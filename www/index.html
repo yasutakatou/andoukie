@@ -1,10 +1,3 @@
-<!--
- * doukie client for Android.
- *
- * @author    yasutakatou
- * @copyright 2020 yasutakatou
- * @license   https://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
--->
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//w3c//dtd xhtml 1.0 strict//en" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -79,12 +72,12 @@ input:checked + .slider:before {
 
 let messages = new Array(); 
 let fileList = new Array(); 
+let existsFileList = new Array(); 
 let syncTime = 10;
 let deleteMode = false;
 let srcUrl = '';
 let counter;
 let syncFlag = false;
-let downFlag = false;
 
 document.addEventListener('DOMContentLoaded', function () {
 var checkbox = document.querySelector('input[type="checkbox"]');
@@ -162,82 +155,72 @@ function addMessage(strs) {
 }
 
 function syncSrc() {
-	clearInterval(counter);
-	if (syncTime > 0) {
-		addMessage(" -- sync!! interval (" + syncTime + ") -> "+ srcUrl +" -- ");
-	} else {
-		addMessage(" -- not sync.. -- ");
-	}
-
-	let element = document.getElementById('stats');
-
-	element.innerHTML = ""
-	for (let i = 0 ; i < messages.length; i++) {
-		element.innerHTML += "<font color=#ffffff>" + messages[i] + "</font><br>";
-	}
-	
-	if (syncTime == 0) {
-		counter = setInterval(syncSrc, 10 * 1000);
-	} else {
-		if (syncFlag == false) {
-			addMessage(" listing.. ");
-			getList().then(function() {
-				counter = setInterval(syncSrc, syncTime * 1000);
-			});
+	return new Promise(function(resolve) {
+		clearInterval(counter);
+		if (syncTime > 0) {
+			addMessage(" -- sync!! interval (" + syncTime + ") -> "+ srcUrl +" -- ");
 		} else {
-			if (downFlag == false) {
-				addMessage(" downloading.. ");
-				downFlag = true;
+			addMessage(" -- not sync.. -- ");
+		}
+
+		let element = document.getElementById('stats');
+
+		element.innerHTML = ""
+		for (let i = 0 ; i < messages.length; i++) {
+			element.innerHTML += "<font color=#ffffff>" + messages[i] + "</font><br>";
+		}
+		
+		if (syncTime == 0) {
+			counter = setInterval(syncSrc, 10 * 1000);
+		} else {
+			if (syncFlag == false) {
+				getList().then(function() {
+					counter = setInterval(syncSrc, syncTime * 1000);
+				});
+			} else {
 				doDownload().then(function() {
 					if (deleteMode == false) {
 						deleteFiles(cordova.file.externalDataDirectory);
 					}
 					syncFlag = false;
-					downFlag = false;
 					counter = setInterval(syncSrc, syncTime * 1000);
 				});
 			}
 		}
-	}
+	});
 }
 
 function deleteFiles(path) {
-	window.resolveLocalFileSystemURL(path,
-		function (fileSystem) {
-		var reader = fileSystem.createReader();
-		reader.readEntries(
-			function (entries) {
-				for (var i = 0 ; i < entries.length; i++) {
-					//alert(entries);
-					if (fileList.indexOf(entries[i]) == -1) {
-						removeFile(path + entries[i])
-						//alert("delete: " + path + entries[i]);
+	return new Promise(function(resolve) {
+		window.resolveLocalFileSystemURL(path,function (fileSystem) {
+			var reader = fileSystem.createReader();
+			reader.readEntries(
+				function (entries) {
+					for (var i = 0 ; i < entries.length; i++) {
+						if (existsFileList.indexOf(entries[i].name) == -1) {
+							removeFile(entries[i].name)
+						}
 					}
-				}
-			},
-			function (err) {
+				},
+				function (err) {
+					addMessage(err);
+			});
+			}, function (err) {
 				addMessage(err);
 			}
 		);
-		}, function (err) {
-			addMessage(err);
-		}
-	);
+	});
 }
 
-function removeFile(path) {
-	return new Promise((resolve, reject) => {
-	const filePath = path.substr(0, path.lastIndexOf('/'));
-
-	window.resolveLocalFileSystemURL(filePath, (dir) => {
-		const fileName = path.substr(path.lastIndexOf('/') + 1);
-		dir.getFile(fileName, { create: false }, (fileEntry) => {
-		fileEntry.remove(() => {
-			resolve('file removed!');
-		}, (error) => reject('error occurred: ' + error.code),
-			() => reject('file does not exist'));
-		}, (error) => reject(error));
-		}, (error) => reject(error));
+function removeFile(filename) {
+	window.resolveLocalFileSystemURL(cordova.file.externalDataDirectory, function(dir) {
+		dir.getFile(filename, {create:true}, function(file) {
+			file.remove(() => {
+				addMessage('file removed: ' + filename);
+			}, function(){
+				addMessage('Unable to save file in path: '+ filename);
+			});
+		});
 	});
 }
 
@@ -246,7 +229,7 @@ function doDownload() {
 		for (var i = 0 ; i < fileList.length; i++) {
 			if (fileList[i].length > 1) {
 				var strb = fileList[i].split(/:/);
-				DownloadFile(srcUrl+"/download/" + strb[0],strb[0],strb[1]);
+				DownloadFile(srcUrl+"/download/" + btoa(strb[0]),strb[0],strb[1]);
 			}
 		}
 		resolve();
@@ -255,7 +238,8 @@ function doDownload() {
 
 function getList() {
 	return new Promise(function(resolve) {
-		fileList = new Array(); 
+		fileList = new Array();
+		existsFileList = new Array(); 
 		cordovaFetch(srcUrl + "/list", {
 			method : 'GET',
 		})
@@ -284,7 +268,7 @@ function existAndHashCheck(strs) {
 				if (strb[0].charAt(0) == " ") {
 					strb[0] = strb[0].substr(1);
 				}
-				checkLogic(strb[0],strb[1],strb[2]);
+				checkLogic(atob(strb[0]),strb[1],strb[2]);
 			}
 		}
 		resolve();
@@ -296,10 +280,12 @@ function checkLogic(filename,hashStr,contentType) {
 		var params = {data: cordova.file.externalDataDirectory.replace(/file:\/\//g, "")+filename, hash: "md5"};
 		window.hashFile(params, function(hash) {
 			if (hashStr != hash.toLowerCase()) {
-				addMessage("hash differ! " + filename);
+				addMessage("not exists or hash differ: " + filename);
 				fileList.push(filename);
+				existsFileList.push(filename);
 			} else {
 				addMessage("same or exists: " + filename);
+				existsFileList.push(filename);
 			}
 		});
 		resolve();
@@ -374,17 +360,18 @@ function savebase64AsPDF(folderpath,filename,content,contentType){
 }
 
 function onDeviceReady() {
-	// cordova.plugins.barcodeScanner.scan(function(result){
-	// 		srcUrl = result.text
-			
-	// 		counter = setInterval(syncSrc, 5 * 1000);
-	// 	},function(error){
-	// 		alert(JSON.stringify(error));
-	// 		navigator.app.exitApp();
-	// 	}
-	// );
-	srcUrl = "http://192.168.0.10:8080/test"
-	counter = setInterval(syncSrc, 5 * 1000);
+	cordova.plugins.barcodeScanner.scan(function(result){
+			if (result.text.indexOf('https:') > -1) {
+				alert("HTTPS not support!");
+				navigator.app.exitApp();
+			}
+			srcUrl = result.text			
+			counter = setInterval(syncSrc, 5 * 1000);
+		},function(error){
+			alert(JSON.stringify(error));
+			navigator.app.exitApp();
+		}
+	);
 }
 
 </script>
